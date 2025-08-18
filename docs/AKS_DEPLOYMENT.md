@@ -28,54 +28,63 @@ kubectl get secret mongo-mongodb -n mongodb -o jsonpath='{.data.mongodb-root-pas
 ```
 
 ## 3. Create the `pipeline_monitor` database
-Use the IP and password from step 2 to connect with MongoDB Compass and
-create a database named `pipeline_monitor`.
+Use the IP and password from step 2 to connect with MongoDB Compass GUI application. 
+Create a database named `pipeline_monitor`.
 
 ## 4. Create a GitHub PAT token
 Generate a personal access token with the required repository and workflow
 permissions. This token will be stored in a Kubernetes secret.
 
-## 5. Populate secrets in `k8s/manifest.yaml`
-Open `k8s/manifest.yaml` and replace the placeholder values in `stringData`
-with:
-- `MONGO_URI` built from the MongoDB IP and root password
-- `GITHUB_PAT` from step 4
-- `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (leave empty for now if
-  OAuth app not created yet)
-- `GEMINI_API_KEY` from your `.env`
-- `JWT_SECRET` (any strong random string)
+## 5. Add secrets to the Kubernetes manifest
+Edit the secret section in `k8s/manifest.yaml` & `.env` file and include:
+- `MONGODB_URL` built from the password and MongoDB IP
+- `GITHUB_PAT` containing the token
 
-## 6. Deploy the LoadBalancer service and obtain its IP
+## 6. Deploy the backend service
 ```bash
-kubectl apply -f k8s/manifest.yaml
-kubectl get svc pulse-backend -w
+kubectl apply -f k8s/backend-service.yaml
+```
+Record the external IP once the load balancer is ready.
+
+
+## 7. Deploy the LoadBalancer service and obtain its IP
+```bash
+kubectl apply -f k8s/backend-service.yaml
+kubectl get svc backend-service -w
 ```
 Record the external IP once it appears.
 
-## 7. Create a GitHub OAuth app
-Use the service IP from step 6 as both the homepage URL and callback URL:
+## 8. Create a GitHub OAuth app
+Use the service IP from step 7 as both the homepage URL and callback URL:
 ```
 Homepage URL: http://<LB_IP>:5000
 Callback URL: http://<LB_IP>:5000/auth/github/callback
 ```
 Generate a client secret.
 
-## 8. Update OAuth and Gemini settings
+## 9. Update OAuth and Gemini settings
 Edit `k8s/manifest.yaml` again and fill in:
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- Replace `<LOAD_BALANCER_IP>` placeholders in `SWAGGER_SERVER_URL` and
-  `GITHUB_CALLBACK_URL` with the IP from step 6
-- Ensure `GEMINI_API_KEY` and `GEMINI_MODEL` are set in the secret
+- `GITHUB_CLIENT_ID`, also update it in `.env` file.
+- `GITHUB_CLIENT_SECRET` , also update it in `.env` file.
+- Replace `<LOAD_BALANCER_IP>` placeholders in `SWAGGER_SERVER_URL` in deployment section and update the `GITHUB_CALLBACK_URL` which are there in step 8 in the secrets section.
+- Replace the `GEMINI_API_KEY` and `GEMINI_MODEL` with the values which are there in the .env file.
 
-## 9. Apply the manifest
+## 10. Build and Push the Docker image
+Build the `Dockerfile` from /backend folder and push the image to container registry:
+```bash
+- docker login
+- username & password.
+- docker build -t <your-registry>/pulse-backend:1.0 .
+```
+
+## 10. Apply the manifest
+Update `<your-registry>` with the registry which the docker registry which you built and pushed the image. 
 ```bash
 kubectl apply -f k8s/manifest.yaml
 ```
-This creates the secret, deployment, and service (or updates them if they
-already exist).
+This creates the secret, deployment (or updates them if they already exist).
 
-## 10. Verify the deployment
+## 11. Verify the deployment
 ```bash
 kubectl get pods
 curl http://<LB_IP>:5000/api-docs/
