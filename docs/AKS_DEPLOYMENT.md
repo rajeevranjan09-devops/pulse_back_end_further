@@ -1,79 +1,84 @@
 # Deploying the Backend to Azure Kubernetes Service (AKS)
 
-This guide documents the process required to run the backend application on an
-Azure Kubernetes Service cluster.
+
+The following steps describe how to run the Pulse backend on an existing AKS cluster.
+Each step includes the exact commands that were used during setup.
 
 ## Prerequisites
-- Azure CLI, `kubectl`, and `helm` installed and configured
+- Azure CLI, `kubectl`, and `helm` installed and logged in
 - Access to an AKS cluster
 - MongoDB Compass for creating the initial database
 - GitHub account with permission to create PAT tokens and OAuth apps
 - Gemini API key
 
-## 1. Install MongoDB in AKS using Helm
+## 1. Install MongoDB with Helm
+Deploy MongoDB in its own namespace so it is isolated from the application.
 ```bash
+kubectl create namespace mongodb
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
-helm install mongo bitnami/mongodb
+helm upgrade --install mongo bitnami/mongodb -n mongodb --set service.type=LoadBalancer
 ```
-Wait for the MongoDB service to obtain an external IP.
+Wait until the MongoDB service shows an external IP.
 
-## 2. Retrieve MongoDB credentials and IP address
+## 2. Retrieve MongoDB credentials and IP
 ```bash
-kubectl get svc mongo-mongodb -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-kubectl get secret mongo-mongodb -o jsonpath='{.data.mongodb-root-password}' | base64 -d
+kubectl get svc mongo-mongodb -n mongodb -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+kubectl get secret mongo-mongodb -n mongodb -o jsonpath='{.data.mongodb-root-password}' | base64 -d
 ```
 
 ## 3. Create the `pipeline_monitor` database
-Use the IP and password from step 2 to connect to MongoDB with MongoDB Compass
-and create a database named `pipeline_monitor`.
+Use the IP and password from step 2 to connect with MongoDB Compass and
+create a database named `pipeline_monitor`.
 
 ## 4. Create a GitHub PAT token
-Generate a personal access token with the required repository and user
+Generate a personal access token with the required repository and workflow
 permissions. This token will be stored in a Kubernetes secret.
 
-## 5. Add secrets to the Kubernetes manifest
-Edit the secret manifest in `k8s/backend-secret.yaml` and include:
-- `MONGODB_URL` built from the password and MongoDB IP
-- `GITHUB_PAT` containing the token
+## 5. Populate secrets in `k8s/manifest.yaml`
+Open `k8s/manifest.yaml` and replace the placeholder values in `stringData`
+with:
+- `MONGO_URI` built from the MongoDB IP and root password
+- `GITHUB_PAT` from step 4
+- `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (leave empty for now if
+  OAuth app not created yet)
+- `GEMINI_API_KEY` from your `.env`
+- `JWT_SECRET` (any strong random string)
 
-## 6. Deploy the backend service
+## 6. Deploy the LoadBalancer service and obtain its IP
 ```bash
-kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/manifest.yaml
+kubectl get svc pulse-backend -w
 ```
-Record the external IP once the load balancer is ready.
+Record the external IP once it appears.
 
 ## 7. Create a GitHub OAuth app
-Use the service IP from step 6 as both the homepage URL and callback URL.
-Generate the client secret.
+Use the service IP from step 6 as both the homepage URL and callback URL:
+```
+Homepage URL: http://<LB_IP>:5000
+Callback URL: http://<LB_IP>:5000/auth/github/callback
+```
+Generate a client secret.
 
-## 8. Add GitHub OAuth credentials
-Update `k8s/backend-secret.yaml` with:
+## 8. Update OAuth and Gemini settings
+Edit `k8s/manifest.yaml` again and fill in:
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
+- Replace `<LOAD_BALANCER_IP>` placeholders in `SWAGGER_SERVER_URL` and
+  `GITHUB_CALLBACK_URL` with the IP from step 6
+- Ensure `GEMINI_API_KEY` and `GEMINI_MODEL` are set in the secret
 
-## 9. Include the Gemini API key
-Add `GEMINI_API_KEY` to the same secret manifest.
-
-## 10. Set the Swagger server URL
-Include an environment variable `SWAGGER_SERVER_URL` in
-`k8s/backend-deployment.yaml` pointing to the load balancer IP from step 6.
-
-## 11. Apply the deployment and secrets
+## 9. Apply the manifest
 ```bash
-kubectl apply -f k8s/backend-secret.yaml
-kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/manifest.yaml
 ```
+This creates the secret, deployment, and service (or updates them if they
+already exist).
 
-## 12. Verify the deployment
-Visit:
+## 10. Verify the deployment
+```bash
+kubectl get pods
+curl http://<LB_IP>:5000/api-docs/
 ```
-http://<app-load-balancer-ip>:5000/api-docs/
-```
-The Swagger UI should be displayed.
-
-## Manifest overview
-- `k8s/backend-secret.yaml`: Kubernetes secret definitions
-- `k8s/backend-service.yaml`: Load balancer service
-- `k8s/backend-deployment.yaml`: Backend deployment
-
+The Swagger UI should be available in the browser at
+`http://<LB_IP>:5000/api-docs/`.
