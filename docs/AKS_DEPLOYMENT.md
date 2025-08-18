@@ -1,5 +1,6 @@
 # Deploying the Backend to Azure Kubernetes Service (AKS)
 
+
 The following steps describe how to run the Pulse backend on an existing AKS cluster.
 Each step includes the exact commands that were used during setup.
 
