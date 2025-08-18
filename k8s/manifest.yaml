@@ -1,87 +1,43 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: pulse-backend-secrets
+  name: backend-secrets
 type: Opaque
 stringData:
-  MONGO_URI: "mongodb://user:password@mongo-mongodb.mongodb.svc.cluster.local:27017/pipeline_monitor?authSource=admin"
-  GITHUB_PAT: "<github-pat>"
-  GITHUB_CLIENT_ID: "<github-client-id>"
-  GITHUB_CLIENT_SECRET: "<github-client-secret>"
-  GEMINI_API_KEY: "<gemini-api-key>"
-  GEMINI_MODEL: "gemini-1.5-flash"
-  JWT_SECRET: "<jwt-secret>"
+  PORT: "5000"
+  MONGO_URI: "mongodb://root:<MONGO_PASSWORD>@<MONGODB_LOAD_BALANCER_IP>:27017/pipeline_monitor?authSource=admin"
+  SESSION_SECRET: "supersecret"
+  JWT_SECRET: "superjwtsecret"
+  GITHUB_CLIENT_ID: "Ov23liRYNQPGaHkLyH94"
+  GITHUB_CLIENT_SECRET: "a74cf05fe7d1dd80f89cb6afd38b04c4537dcbda"
+  GITHUB_CALLBACK_URL: "http://<LOAD_BALANCER_IP>:5000/auth/github/callback"
+  GITHUB_PAT: "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"
+  GEMINI_API_KEY: "AIzaSyB1dNkYd-g2qFxWVTtk-FfaLjhWxUyB2Zw"
+  GEMINI_MODEL: "gemini-2.5-flash"
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pulse-backend
-  labels:
-    app: pulse-backend
+  name: backend-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: pulse-backend
+      app: backend-app
   template:
     metadata:
       labels:
-        app: pulse-backend
+        app: backend-app
     spec:
       containers:
-        - name: pulse-backend
-          image: <your-registry>/pulse-backend:latest
-          ports:
-            - containerPort: 5000
-          env:
-            - name: MONGO_URI
-              valueFrom:
-                secretKeyRef:
-                  name: pulse-backend-secrets
-                  key: MONGO_URI
-            - name: GITHUB_PAT
-              valueFrom:
-                secretKeyRef:
-                  name: pulse-backend-secrets
-                  key: GITHUB_PAT
-            - name: GITHUB_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: pulse-backend-secrets
-                  key: GITHUB_CLIENT_ID
-            - name: GITHUB_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: pulse-backend-secrets
-                  key: GITHUB_CLIENT_SECRET
-            - name: GEMINI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: pulse-backend-secrets
-                  key: GEMINI_API_KEY
-            - name: GEMINI_MODEL
-              valueFrom:
-                secretKeyRef:
-                  name: pulse-backend-secrets
-                  key: GEMINI_MODEL
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: pulse-backend-secrets
-                  key: JWT_SECRET
-            - name: SWAGGER_SERVER_URL
-              value: "http://<LOAD_BALANCER_IP>:5000"
-            - name: GITHUB_CALLBACK_URL
-              value: "http://<LOAD_BALANCER_IP>:5000/auth/github/callback"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: pulse-backend
-spec:
-  type: LoadBalancer
-  selector:
-    app: pulse-backend
-  ports:
-    - port: 5000
-      targetPort: 5000
+      - name: backend-app
+        image: <you-registry>/pulse_back_end:1.0
+        ports:
+        - containerPort: 5000
+        envFrom:
+        - secretRef:
+            name: backend-secrets
+        env:
+        - name: SWAGGER_SERVER_URL
+          value: "http://<LOAD_BALANCER_IP>:5000"
