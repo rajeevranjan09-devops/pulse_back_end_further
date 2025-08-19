@@ -17,7 +17,7 @@ Deploy MongoDB in its own namespace so it is isolated from the application.
 kubectl create namespace mongodb
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
-helm upgrade --install mongo bitnami/mongodb -n mongodb --set service.type=LoadBalancer
+helm upgrade --install mongo bitnami/mongodb -n mongodb --set service.type=LoadBalancer --set architecture=standalone
 ```
 Wait until the MongoDB service shows an external IP.
 
