@@ -27,17 +27,10 @@ jobs:
       - name: Login to AWS ECR
         run: aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
 
-
-      - name: Build, tag, and push docker image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: my-node-backend   # Replace with your ECR repo name
+      - name: Build & Push Docker Image
         run: |
-          echo "Building Docker image..."
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-          echo "Pushing Docker image..."
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker buildx build \
+          --platform linux/amd64 \
+          -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/pulse_back_end_further:latest \
+          --push .
 
-      - name: Output image URI
-        run: |
-          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:latest"
