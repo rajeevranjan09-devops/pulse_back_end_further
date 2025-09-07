@@ -31,6 +31,7 @@ jobs:
         run: |
           docker buildx build \
           --platform linux/amd64 \
-          -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/pulse_back_end_further:latest \
+          -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/small-ecommerce-repo:latest \
           --push ./backend
-
+#355458267882.dkr.ecr.ap-south-1.amazonaws.com/small-ecommerce-repo:latest
+#-t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/pulse_back_end_further:latest \
